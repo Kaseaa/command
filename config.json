@@ -1,0 +1,8 @@
+{
+    "prefix": "Proxy",
+    "loginMessage": true,
+    "enableCommandsInPublicChats": true,
+    "commandPrefixes": ["!", ".", "$"],
+    "authorName": "",
+    "showCommandsCommands": ["commands", "cmds", "command", "cmd"]
+}
