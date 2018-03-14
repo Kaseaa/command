@@ -69,7 +69,7 @@ class Command {
 			if(data.length) {
 				// Case insensitivity \o/
 				let cmd = data[0].toLowerCase();
-				data = data.splice(0, 1);
+				data.splice(0, 1);
 
 				for(let idx in hooks[cmd]) {
 					try {
