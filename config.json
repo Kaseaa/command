@@ -1,7 +1,7 @@
 {
-    "prefix": "Proxy",
-    "loginMessage": true,
-    "enableCommandsInPublicChats": true,
+    "private_channel_name": "Proxy",
+    "login_message": true,
+    "public_enable": true,
     "commandPrefixes": ["!", ".", "$"],
     "authorName": "",
     "showCommandsCommands": ["commands", "cmds", "command", "cmd"]

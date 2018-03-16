@@ -1,4 +1,22 @@
-const config = require('./config.json');
+const fs = require('fs');
+const path = require('path');
+
+const DEFAULT_CONFIG = {
+    "private_channel_name": "Proxy",
+    "login_message": true,
+    "public_enable": true,
+    "commandPrefixes": ["!", ".", "$"],
+    "authorName": "",
+    "showCommandsCommands": ["commands", "cmds", "command", "cmd"]
+};
+
+
+let config = require('./config.json');
+// Config migration -- backwards compatability
+config = Object.assign({}, DEFAULT_CONFIG, config);
+// Save new config file -- just to be safe
+fs.writeFileSync(path.join(__dirname, "config.json"), JSON.stringify(config, null, "    "));
+
 const DEFAULT_HOOK_SETTINGS_ON_CHAT = {order: 10};
 const REPLACE_SYMBOLS_ON_MESSAGE = {
 	"&": "&amp;",
@@ -114,7 +132,7 @@ class Command {
 			if(e.channel == 11 + PRIVATE_CHANNEL_INDEX) {
 				this.exec(e.message, false);
 				return false;
-			}else if(config.enableCommandsInPublicChats) {
+			}else if(config.public_enable) {
 				return this.exec(e.message, true);
 			}
 		};
@@ -139,9 +157,9 @@ class Command {
 				index: PRIVATE_CHANNEL_INDEX,
 				id: PRIVATE_CHANNEL_ID,
 				unk: [],
-				name: config.prefix
+				name: config.private_channel_name
 			});
-			if(config.loginMessage) {
+			if(config.login_message) {
 				this.message(`TERA Proxy enabled. Client version: ${dispatch.base.protocolVersion}. Patch version: ${dispatch.base.majorPatchVersion}`);
 			}
 		}
