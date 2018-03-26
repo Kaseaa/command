@@ -200,7 +200,10 @@ class Command {
 
 function stripFont(str) {
 	str = str.replace('</FONT>', '');
-	return str.replace('<FONT>', '');
+	let s = str.indexOf('<FONT');
+	let e = str.indexOf('>') + 1;
+	str = `${str.substring(0, s)}${str.substring(e, str.length)}`;
+	return str;
 }
 
 function parseArgs(str) {
