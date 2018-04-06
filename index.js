@@ -98,7 +98,7 @@ class Command {
 						this.message(e);
 					}
 				}
-				return false;
+				return !!!hooks[cmd];
 			}
 			return true;
 		};
