@@ -2,7 +2,20 @@
     "private_channel_name": "Proxy",
     "login_message": true,
     "public_enable": true,
-    "commandPrefixes": ["!", ".", "$"],
+    "commandPrefixes": [
+        "!",
+        ".",
+        "$"
+    ],
     "authorName": "",
-    "showCommandsCommands": ["commands", "cmds", "command", "cmd"]
+    "showCommandsCommands": [
+        "commands",
+        "cmds",
+        "command",
+        "cmd"
+    ],
+    "streaming_mode": false,
+    "enable_streaming_mode_commands": [
+        "streaming"
+    ]
 }

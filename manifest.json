@@ -2,9 +2,9 @@
     "files": {
         "config.json": {
             "overwrite": false,
-            "hash": "7846ca1ea76bc37ffaf2f22a6ca0d5ef5e7ce21eab7300d556f8b5f0c0195ad9"
+            "hash": "832187e2aad6355cd4785703f8b9c6840b638640efec60e0a70c0787c81e5ed3"
         },
-        "index.js": "218b7993b1d506bd4cf1fe1e8bc11dbd66fd8648157ae4ffa3d1dba6bafc02c3",
+        "index.js": "e8a7a2e144ad07c7e71e67d703d3ccf99ee19ce6becd5bcce42bd2b97d0b9288",
         "LICENSE": "53927bd0b739d38c87a0a82236fd9b070c2dfff11c0c119be50372005d5047ad",
         "package.json": "432c7e6fbc6acf1702aa0a65bf47cf05e4b9006780b31950abee134e3223a4ed",
         "README.md": "1a4ee7c2149f95b9c04b715b7cc8ac4aa341ee52f3ac3ec73490d1be99243862"
@@ -15,6 +15,9 @@
         ],
         "S_JOIN_PRIVATE_CHANNEL": [
             1
+        ],
+        "S_LEAVE_PRIVATE_CHANNEL": [
+            2
         ],
         "S_REQUEST_PRIVATE_CHANNEL_INFO": [
             1

@@ -7,7 +7,9 @@ const DEFAULT_CONFIG = {
     "public_enable": true,
     "commandPrefixes": ["!", ".", "$"],
     "authorName": "",
-    "showCommandsCommands": ["commands", "cmds", "command", "cmd"]
+	"showCommandsCommands": ["commands", "cmds", "command", "cmd"],
+	"streaming_mode": false,
+	"enable_streaming_mode_commands": ["streaming"]
 };
 
 
@@ -17,7 +19,7 @@ config = Object.assign({}, DEFAULT_CONFIG, config);
 // Save new config file -- just to be safe
 fs.writeFileSync(path.join(__dirname, "config.json"), JSON.stringify(config, null, "    "));
 
-const DEFAULT_HOOK_SETTINGS_ON_CHAT = {order: 10};
+const DEFAULT_HOOK_SETTINGS_ON_CHAT = {order: -15};
 const REPLACE_SYMBOLS_ON_MESSAGE = {
 	"&": "&amp;",
 	"<": "&lt;",
@@ -34,20 +36,27 @@ class Command {
 		let loaded = false;
 
 		/** Functions for this class **/
-		this.add = (cmd, callback, id) => {
+		this.add = (cmd, callback, id, ctx, moduleName) => {
 			if(Array.isArray(cmd)) {
-				for(let i in cmd) this.add(cmd[i], callback, id);
+				for(let i in cmd) this.add(cmd[i], callback, id, ctx, moduleName);
 				return;
 			}
 
+			// Make sure the cmd and callback is defined
 			if(!cmd || !callback) return console.error(`Failed to add command ${cmd}.`);
+
+			// if the context is defined, bind the callback with the context
+			if(ctx) callback = callback.bind(ctx);
+
 			// Case insensitivity \o/
 			cmd = cmd.toLowerCase();
+			// If it isn't defined, we add a array for it
 			if(!hooks[cmd]) hooks[cmd] = [];
 
 			hooks[cmd].push({
 				"id": id || --currentHookNum,
-				"callback": callback
+				"callback": callback,
+				"name": moduleName
 			});
 		};
 
@@ -64,8 +73,11 @@ class Command {
 			}
 		};
 
-		this.message = (msg) => {
-			if(!msg) return;
+		this.message = (...args) => {
+			if(!args || args.length === 0 || config.streaming_mode) return;
+
+			let msg = "";
+			for(let arg of args) msg += arg + " ";
 
 			for(let i = msg.length - 1; i > 0; i--) {
 				if(REPLACE_SYMBOLS_ON_MESSAGE[msg[i]]) {
@@ -110,7 +122,11 @@ class Command {
 		}
 
 		function getStringCommandInfo(str, requiresPrefix) {
-			let arr = parseArgs(str);
+			// This can throw an error without proper closing of ", ' etc
+			let arr = [];
+			try{
+				arr = parseArgs(str);
+			}catch(e) {}
 			if(!arr || arr.length === 0) return [];
 
 			// Check for prefix
@@ -133,7 +149,8 @@ class Command {
 				this.exec(e.message, false);
 				return false;
 			}else if(config.public_enable) {
-				return this.exec(e.message, true);
+				// If we're handling it return false, however if we're in streaming mode return true(since we want to display it)
+				return this.exec(e.message, true) || config.streaming_mode;
 			}
 		};
 
@@ -142,14 +159,14 @@ class Command {
 
 		// Wrapping this in a try statement due to potential missing opcodes
 		try{
-			dispatch.hook('C_OP_COMMAND', 1, e=> this.exec(e.cmd, false));
+			dispatch.hook('C_OP_COMMAND', 1, e=> this.exec(e.command, false));
 			dispatch.hook('C_ADMIN', 1, e=> this.exec(e.command, false));
 		}catch(e) {}
 
 		/** Handle misc **/
 
 		// Set Loaded on login
-		dispatch.hook('S_LOGIN', ()=> { loaded = false; });
+		dispatch.hook('S_LOGIN', 'raw', ()=> { loaded = false; });
 
 		// Join channel
 		this.__joinChannel = () => {
@@ -164,10 +181,17 @@ class Command {
 			}
 		}
 
-		dispatch.hook('S_LOAD_CLIENT_USER_SETTING', ()=> {
+		// Leave channel
+		this.__leaveChannel = () => {
+			dispatch.toClient('S_LEAVE_PRIVATE_CHANNEL', 2, {
+				channelId: PRIVATE_CHANNEL_ID
+			});
+		};
+
+		dispatch.hook('S_LOAD_CLIENT_USER_SETTING', 'raw', ()=> {
 			if(!loaded) {
 				loaded = true;
-				process.nextTick(this.__joinChannel);
+				if(!config.streaming_mode) process.nextTick(this.__joinChannel);
 			}
 		});
 
@@ -191,10 +215,36 @@ class Command {
 
 		// Hook our own command \o/
 		this.add(config.showCommandsCommands, ()=> {
-			for(let key in hooks) {
-				this.message(`Command: ${key}`);
+			let sorted = {};
+			for(let cmd in hooks) {
+				for(let obj of hooks[cmd]) {
+					// If it isn't defined
+					if(!sorted[obj.name]) sorted[obj.name] = [];
+					// Add the command to the array
+					sorted[obj.name].push(cmd);
+				}
 			}
-		}, "Kasea is a genius.");
+
+			// Print out everything to chat
+			for(let name in sorted) {
+				this.message("----", name, "----");
+				for(let cmd of sorted[name]) this.message(cmd);
+			}
+		}, null, null, "command");
+
+		// Hook streaming mode command toggle
+		this.add(config.enable_streaming_mode_commands, ()=> {
+			config.streaming_mode = !config.streaming_mode;
+
+			// if we enabled it
+			if(config.streaming_mode) {
+				this.__leaveChannel();
+			}
+			// if we disabled it
+			else {
+				this.__joinChannel();
+			}
+		}, null, null, "command");
 	}
 }
 
@@ -271,10 +321,44 @@ function parseArgs(str) {
 
 let map = new WeakMap();
 
-module.exports = function Require(dispatch) {
-	if(map.has(dispatch.base)) return map.get(dispatch.base);
+class ExportedCommand{
+	constructor(dispatch) {
+		this.printed = false;
+		this._dispatch = dispatch;
 
-	let command = new Command(dispatch);
-	map.set(dispatch.base, command);
-	return command;
+		// If the map doesn't exist, create it
+		if(!map.has(dispatch.base)) map.set(dispatch.base, new Command(dispatch));
+	}
+
+	add(cmd, callback, id, ctx) {
+		// This is ugly af, but fucking Just "\_( ^-^ )_/"
+		let args = [cmd, callback];
+		// If the id is an object, it means it's the context param
+		if(typeof id === 'object') {
+			args.push(ctx);
+			args.push(id);
+		// If not, the id is in the correct position
+		}else {
+			args.push(id);
+			args.push(ctx);
+		}
+		args.push(this._dispatch.moduleName);
+		return map.get(this._dispatch.base).add(...args);
+	}
+
+	remove(cmd, id) {
+		return map.get(this._dispatch.base).remove(cmd, id);
+	}
+
+	message(...args) {
+		return map.get(this._dispatch.base).message(...args);
+	}
+
+	exec(str, requiresPrefix=true) {
+		return map.get(this._dispatch.base).exec(str, requiresPrefix);
+	}
+}
+
+module.exports = function Require(dispatch) {
+	return new ExportedCommand(dispatch);
 }
